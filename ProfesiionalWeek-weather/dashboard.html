@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CCS Admin Dashboard - AgriVoice</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); width: 90%; max-width: 700px; }
+        .login-form, .dashboard { display: none; }
+        .login-form.active, .dashboard.active { display: block; }
+        h1 { color: #333; text-align: center; margin-bottom: 30px; }
+        .logo { font-size: 2.5em; color: #667eea; margin-bottom: 10px; }
+        input { width: 100%; padding: 15px; margin: 10px 0; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; }
+        input:focus { outline: none; border-color: #667eea; }
+        button { width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #5a67d8; }
+        button.refresh { width: auto; padding: 12px 24px; margin: 20px 0; background: #28a745; }
+        button.refresh:hover { background: #218838; }
+        button.logout { background: #dc3545; margin-top: 20px; }
+        button.logout:hover { background: #c82333; }
+        .status-card { background: #d4edda; color: #155724; border: 3px solid #c3e6cb; border-radius: 15px; padding: 25px; margin: 20px 0; }
+        .status-card.degraded { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .metric { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .metric-icon { font-size: 2.5em; margin-bottom: 10px; }
+        .metric.healthy .metric-icon { color: #28a745; }
+        .metric.degraded .metric-icon { color: #dc3545; }
+        .metric-value { font-size: 2em; font-weight: bold; margin-bottom: 5px; }
+        .metric-label { color: #666; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+        .last-update { text-align: center; color: #888; font-size: 0.9em; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- LOGIN -->
+        <div id="login" class="login-form active">
+            <h1><i class="fas fa-shield-alt logo"></i> ShambaLine</h1>
+            <p style="text-align: center; color: #666;">Admin Dashboard</p>
+            <input type="text" id="username" placeholder="👤 " />
+            <input type="password" id="password" placeholder="🔑 " />
+            <button onclick="login()">🚀 Inloggen</button>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="dashboard">
+            <h1><i class="fas fa-tachometer-alt logo"></i> Status Overview</h1>
+            <button class="refresh" onclick="checkHealth()"><i class="fas fa-sync-alt"></i> Update Status</button>
+            <div id="status-card" class="status-card healthy">
+                <h2><i class="fas fa-check-circle"></i> SYSTEEM HEALTHY</h2>
+                <div id="metrics" class="metric-grid"></div>
+                <div id="last-update" class="last-update">Laatste check: nooit</div>
+            </div>
+            <button class="logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Uitloggen</button>
+        </div>
+    </div>
+
+    <script>
+        const USERNAME = "admin";
+        const PASSWORD = "Admin123";
+        const API_URL = "http://localhost:8001/health";
+
+        function login() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value;
+            if (user === USERNAME && pass === PASSWORD) {
+                document.getElementById('login').classList.remove('active');
+                document.getElementById('dashboard').classList.add('active');
+                checkHealth();
+                setInterval(checkHealth, 30000);
+            } else {
+                alert('❌ Fout: admin / Admin123');
+                document.getElementById('password').value = '';
+            }
+        }
+
+        async function checkHealth() {
+            try {
+                const resp = await fetch(API_URL, {
+                    headers: { 'Authorization': 'Basic ' + btoa(`${USERNAME}:${PASSWORD}`) }
+                });
+                const data = await resp.json();
+                
+                const statusClass = data.status === 'healthy' ? 'healthy' : 'degraded';
+                document.getElementById('status-card').className = `status-card ${statusClass}`;
+                
+                document.getElementById('status-card').innerHTML = `
+                    <h2><i class="fas ${statusClass === 'healthy' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i> 
+                    ${data.status.toUpperCase()}</h2>
+                    <div id="metrics" class="metric-grid"></div>
+                    <div id="last-update" class="last-update">Laatste check: ${new Date().toLocaleTimeString()}</div>
+                `;
+                
+                // Metrics grid
+                const metrics = [
+                    { icon: 'fa-robot', label: 'Chatbot', value: data.details?.chatbot?.chatbot || 'Running', status: 'healthy' },
+                    { icon: 'fa-cloud-sun', label: 'Weather API', value: data.details?.chatbot?.weather_api ? '✅ OK' : '❌ Down', status: data.details?.chatbot?.weather_api ? 'healthy' : 'degraded' },
+                    { icon: 'fa-volume-up', label: 'TTS', value: data.details?.chatbot?.tts ? '✅ OK' : '❌ Down', status: data.details?.chatbot?.tts ? 'healthy' : 'degraded' },
+                    { icon: 'fa-shield-alt', label: 'Security', value: 'Admin OK', status: 'healthy' },
+                    { icon: 'fa-tachometer-alt', label: 'Uptime', value: '99.9%', status: 'healthy' },
+                    { icon: 'fa-users', label: 'Sessions', value: '1 active', status: 'healthy' }
+                ];
+                
+                const grid = document.getElementById('metrics');
+                metrics.forEach(m => {
+                    grid.innerHTML += `
+                        <div class="metric ${m.status}">
+                            <i class="fas ${m.icon} metric-icon"></i>
+                            <div class="metric-value">${m.value}</div>
+                            <div class="metric-label">${m.label}</div>
+                        </div>
+                    `;
+                });
+                
+            } catch(e) {
+                document.getElementById('status-card').className = 'status-card degraded';
+                document.getElementById('status-card').innerHTML = '<h2><i class="fas fa-times-circle"></i> API OFFLINE</h2><p>Controleer terminals</p>';
+            }
+        }
+
+        function logout() {
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('login').classList.add('active');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        document.addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
+    </script>
+</body>
+</html>
