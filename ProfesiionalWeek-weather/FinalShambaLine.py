@@ -15,34 +15,32 @@ messages = [
 "role": "system",
 "content": """
 You are an AI voice assistant for farmers in East Africa.
-keep talking in english
-Be straight forward clear and to the point, to keep it simple and not to long for the farmers.
-Farmers ask questions about:
+Keep talking in English.
+Be straight forward and simple.
+
+Farmers ask about:
 - crops
 - livestock
 - weather
 
 Rules:
-- Always use provided WEATHER DATA if available.
-- Give short practical farming advice.
-- Maximum 4 sentences.
+Always use WEATHER DATA when available.
+Give short practical farming advice.
+Maximum 4 sentences.
 """
 }
 ]
 
-
 def speak(text):
-    engine = pyttsx3.init()
-    voices = engine.getProperty('voices')
+    engine = pyttsx3.init("sapi5")
+    voices = engine.getProperty("voices")
 
-    engine.setProperty('voice', voices[0].id)
-
-
+    engine.setProperty("voice", voices[0].id)
     engine.setProperty("rate", 160)
+
     engine.say(text)
     engine.runAndWait()
     engine.stop()
-
 
 # -------- CITY DETECTION --------
 def extract_city(text):
@@ -122,6 +120,13 @@ while True:
 
         print("You:", user_text)
 
+        # -------- STOP COMMAND --------
+        if user_text.lower() in ["stop", "exit", "quit", "goodbye"]:
+            print("Stopping assistant")
+            speak("Thank you, good luck with your farm!")
+            break
+
+        # -------- WEATHER CHECK --------
         if any(w in user_text.lower() for w in ["weather","rain","temperature","forecast"]):
 
             city = extract_city(user_text)
